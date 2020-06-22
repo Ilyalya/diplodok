@@ -1,3 +1,4 @@
+#Импортирование библиотек
 import PySimpleGUI as sg
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -14,16 +15,16 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import confusion_matrix
 import pickle
-
+#Функция сохранения состояния обученности классификатора
 def save(obj):
     with open('sis.pickle', 'wb') as f:
         pickle.dump(obj, f)
-
+#Функция загрузки состояния обученности классификатора
 def load():
     with open('sis.pickle', 'rb') as f:
         obj_new = pickle.load(f)
     return obj_new
-
+#Функция визуализации словаря спам слов
 def show_spam(spam_words):
     spam_wc = WordCloud(width = 512,height = 512).generate(spam_words)
     plt.figure(figsize = (10, 8), facecolor = 'k')
@@ -31,7 +32,7 @@ def show_spam(spam_words):
     plt.axis('off')
     plt.tight_layout(pad = 0)
     plt.show()
-
+#Функция визуализации словаря легетимных слов
 def show_ham(ham_words):
     ham_wc = WordCloud(width = 512,height = 512).generate(ham_words)
     plt.figure(figsize = (10, 8), facecolor = 'k')
@@ -39,19 +40,20 @@ def show_ham(ham_words):
     plt.axis('off')
     plt.tight_layout(pad = 0)
     plt.show()
-
+#Чтение данных из таблицы
 oldmails = pd.read_csv('spam.csv', encoding = 'latin-1')
 oldmails.head()
 
 mailz = pd.read_csv('messages.csv', encoding = 'latin-1')
 mailz.head()
 
+#Преобразовани таблицы с данными, удаление лишних столбцов
 oldmails.drop(['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], axis = 1, inplace = True)
 oldmails.head()
 
 mailz.drop(['subject'], axis = 1, inplace = True)
 mailz.head()
-
+#Преобразовани таблицы с данными, переименование столбцов
 oldmails.rename(columns = {'v1': 'labels', 'v2': 'message'}, inplace = True)
 oldmails.head()
 
@@ -59,14 +61,18 @@ oldmails['labels'].value_counts()
 
 mailz['label'].value_counts()
 
+#Преобразовани таблицы с данными, переименование значений столбцов
 oldmails['label'] = oldmails['labels'].map({'ham': 0, 'spam': 1})
 oldmails.head()
 
+#Преобразовани таблицы с данными, удаление лишних столбцов
 oldmails.drop(['labels'], axis = 1, inplace = True)
 oldmails.head()
 
+#Преобразовани таблицы с данными, слияние двух массивов для обучения
 mails = pd.concat((mailz, oldmails), ignore_index=True)
 
+#Разбиение данных на два массива
 totalMails = (int(len(mails))-1)
 trainIndex, testIndex = list(), list()
 for i in range(mails.shape[0]):
@@ -77,6 +83,7 @@ for i in range(mails.shape[0]):
 trainData = mails.loc[trainIndex]
 testData = mails.loc[testIndex]
 
+#Отображение данных в таблице
 trainData.reset_index(inplace = True)
 trainData.drop(['index'], axis = 1, inplace = True)
 trainData.head()
@@ -85,10 +92,13 @@ testData.reset_index(inplace = True)
 testData.drop(['index'], axis = 1, inplace = True)
 testData.head()
 
+#Отображение набора тренировочных данных
 trainData['label'].value_counts()
 
+#Отображение набора данных для тестирования
 testData['label'].value_counts()
 
+#Формирование словрей спам и не спам слов
 spam_words = ' '.join(list(mails[mails['label'] == 1]['message']))
 ham_words = ' '.join(list(mails[mails['label'] == 0]['message']))
 
@@ -100,6 +110,7 @@ testData.head()
 
 testData['label'].value_counts()
 
+#Обработка текста сообщений
 def process_message(message, lower_case = True, stem = True, stop_words = True, gram = 2):
     if lower_case:
         message = message.lower()
@@ -119,12 +130,12 @@ def process_message(message, lower_case = True, stem = True, stop_words = True, 
         print(words)
     return words
 
-
+#Классификация данных
 class SpamClassifier(object):
     def __init__(self, trainData, method='tf-idf'):
         self.mails, self.labels = trainData['message'], trainData['label']
         self.method = method
-
+    #Функция обучения
     def train(self):
         self.calc_TF_and_IDF()
         if self.method == 'tf-idf':
@@ -142,7 +153,7 @@ class SpamClassifier(object):
             self.prob_ham[word] = (self.tf_ham[word] + 1) / (self.ham_words + \
                                                              len(list(self.tf_ham.keys())))
         self.prob_spam_mail, self.prob_ham_mail = self.spam_mails / self.total_mails, self.ham_mails / self.total_mails
-
+    #Вычисление вероятностей
     def calc_TF_and_IDF(self):
         noOfMessages = self.mails.shape[0]
         self.spam_mails, self.ham_mails = self.labels.value_counts()[1], self.labels.value_counts()[0]
@@ -155,8 +166,7 @@ class SpamClassifier(object):
         self.idf_ham = dict()
         for i in range(noOfMessages):
             message_processed = process_message(self.mails[i])
-            count = list()  # To keep track of whether the word has ocured in the message or not.
-            # For IDF
+            count = list()
             for word in message_processed:
                 if self.labels[i]:
                     self.tf_spam[word] = self.tf_spam.get(word, 0) + 1
@@ -193,7 +203,7 @@ class SpamClassifier(object):
             self.prob_ham[word] = (self.prob_ham[word] + 1) / (self.sum_tf_idf_ham + len(list(self.prob_ham.keys())))
 
         self.prob_spam_mail, self.prob_ham_mail = self.spam_mails / self.total_mails, self.ham_mails / self.total_mails
-
+    #Непосредственно функция классификации на основе теоремы Байеса
     def classify(self, processed_message):
         pSpam, pHam = 0, 0
         for word in processed_message:
@@ -214,14 +224,14 @@ class SpamClassifier(object):
             pSpam += log(self.prob_spam_mail)
             pHam += log(self.prob_ham_mail)
         return pSpam >= pHam
-
+    #Функция предсказания является ли сообщение спамом или нет
     def predict(self, testData):
         result = dict()
         for (i, message) in enumerate(testData):
             processed_message = process_message(message)
             result[i] = int(self.classify(processed_message))
         return result
-
+#Функция вычисления качества работы алгоритма
 def metrics(labels, predictions):
     true_pos, true_neg, false_pos, false_neg = 0, 0, 0, 0
     for i in range(len(labels)):
@@ -237,7 +247,7 @@ def metrics(labels, predictions):
 
 
 df = mails
-
+#Обработка сообщений с помощью библиотек
 df['message'] = df.message.map(lambda x: x.lower())
 df['message'] = df.message.str.replace('[^\w\s]', '')
 df['message'] = df['message'].apply(nltk.word_tokenize)
@@ -248,19 +258,20 @@ df['message'] = df['message'].apply(lambda x: [stemmer.stem(y) for y in x])
 
 df['message'] = df['message'].apply(lambda x: ' '.join(x))
 
+#Преобразование сообщений в таблицу векторов
 count_vect = CountVectorizer()
 counts = count_vect.fit_transform(df['message'])
 
 transformer = TfidfTransformer().fit(counts)
 
 counts = transformer.transform(counts)
-
+#Разбиение данных на обучающий и тестирующие наборы с использованием библиотек
 X_train, X_test, y_train, y_test = train_test_split(counts, df['label'], test_size=0.1, random_state=69)
-
+#Классификация данных с  помощью библиотеки scikitlearn
 model = MultinomialNB().fit(X_train, y_train)
-
+#Вычисление качества работы алгоритма библиотеки
 predicted = model.predict(X_test)
-
+#Интерфейс программы
 layout = [
     [sg.Button('Обучение'), sg.Button('Показать спам слова'), sg.Button('Показать не спам слова')],
     [sg.Text('Введите сообщение для проверки на спамовость')],
@@ -270,7 +281,6 @@ layout = [
 
 window = sg.Window('Настройка классификатора', layout)
 while True:
-    # The Event Loop
     event, values = window.read()
 
     if event == sg.WIN_CLOSED or event == 'Выход':
